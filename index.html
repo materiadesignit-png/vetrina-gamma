@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Gamma Arredi x Materia Design</title>
+<style>
+/* Pagina pensata per il browser di una TV: niente librerie, niente font da
+   scaricare, nessuna interazione richiesta. Deve solo aprirsi e suonare. */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#000;overflow:hidden}
+body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#F5F5F7;cursor:none}
+
+video{
+  position:fixed;inset:0;width:100%;height:100%;
+  object-fit:contain;background:#000;
+}
+
+/* messaggio scritto da chi gestisce: compare sopra il filmato */
+#avviso{
+  position:fixed;inset:0;background:#000;display:none;
+  align-items:center;justify-content:center;text-align:center;padding:6vh 8vw;
+}
+#avviso.on{display:flex}
+#avviso p{font-size:5.4vh;font-weight:500;line-height:1.25;letter-spacing:-.02em;max-width:20ch}
+
+/* se il browser blocca la riproduzione automatica */
+#tocca{
+  position:fixed;inset:0;background:#000;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:3vh;
+}
+#tocca.on{display:flex}
+#tocca p{font-size:3.4vh;color:rgba(245,245,247,.7);letter-spacing:.08em}
+#tocca b{font-size:5vh;font-weight:500}
+
+/* spia di diagnosi: si accende solo aggiungendo ?debug all'indirizzo */
+#spia{position:fixed;left:12px;bottom:10px;font-size:13px;color:#666;display:none}
+#spia.on{display:block}
+</style>
+</head>
+<body>
+
+<video id="v" muted playsinline autoplay loop preload="auto" disablepictureinpicture></video>
+<div id="avviso"><p></p></div>
+<div id="tocca"><b>Tocca lo schermo</b><p>per avviare la riproduzione</p></div>
+<div id="spia"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const FILM = {
+    vetrina: 'vetrina.mp4',
+    spot:    'spot.mp4',
+    foto:    'foto.mp4',
+  };
+  const RICONTROLLA = 60000;      // ogni quanto rileggere stato.json, in ms
+
+  const v = document.getElementById('v');
+  const avviso = document.getElementById('avviso');
+  const tocca = document.getElementById('tocca');
+  const spia = document.getElementById('spia');
+  const par = new URLSearchParams(location.search);
+  if (par.has('debug')) spia.classList.add('on');
+
+  let attuale = null;
+  const log = (t) => { spia.textContent = new Date().toLocaleTimeString() + '  ' + t; };
+
+  function mostra(nome) {
+    const src = FILM[nome] || FILM.foto;
+    if (attuale === src) return;
+    attuale = src;
+    v.src = src;
+    v.load();
+    avvia();
+    log('in onda: ' + nome);
+  }
+
+  function avvia() {
+    const p = v.play();
+    if (p && p.catch) p.catch(() => {
+      // Alcuni browser TV pretendono un tocco prima di far partire un video.
+      // Il cartello si mostra solo se dopo un attimo il video e ancora fermo:
+      // il primo play() viene spesso rifiutato mentre il file si sta ancora
+      // aprendo, e un istante dopo parte da solo.
+      setTimeout(() => {
+        if (v.paused) { tocca.classList.add('on'); log('riproduzione bloccata: serve un tocco'); }
+      }, 1200);
+    });
+  }
+  // appena il video suona davvero, il cartello sparisce
+  v.addEventListener('playing', () => { tocca.classList.remove('on'); log('in riproduzione'); });
+  ['click', 'touchstart', 'keydown'].forEach(e =>
+    addEventListener(e, () => { tocca.classList.remove('on'); avvia(); }));
+
+  // se il filmato si inceppa, si riparte: la pagina deve reggere giorni interi
+  v.addEventListener('ended', avvia);
+  v.addEventListener('error', () => { log('errore video, riprovo fra 10s'); setTimeout(() => { v.load(); avvia(); }, 10000); });
+  v.addEventListener('stalled', avvia);
+  setInterval(() => { if (v.paused && !tocca.classList.contains('on')) avvia(); }, 15000);
+
+  function leggiStato() {
+    // la marca temporale evita che la TV riproponga una copia vecchia
+    fetch('stato.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(s => {
+        const msg = (s.messaggio || '').trim();
+        if (msg) {
+          avviso.querySelector('p').innerHTML = msg;
+          avviso.classList.add('on');
+          v.pause();
+          log('messaggio a schermo');
+        } else {
+          avviso.classList.remove('on');
+          mostra(s.mostra);
+          if (v.paused) avvia();
+        }
+      })
+      .catch(() => log('stato.json non raggiungibile, tengo quello che c\'e'));
+  }
+
+  // l'indirizzo puo forzare un filmato: utile per provare senza toccare il file
+  const forzato = par.get('mostra');
+  if (forzato && FILM[forzato]) { mostra(forzato); } else { mostra('foto'); }
+
+  leggiStato();
+  setInterval(leggiStato, RICONTROLLA);
+
+  // schermo intero al primo tocco, dove il browser lo consente
+  addEventListener('click', () => {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen)
+      document.documentElement.requestFullscreen().catch(() => {});
+  });
+})();
+</script>
+</body>
+</html>
