@@ -4,44 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Gamma Arredi x Materia Design</title>
+<title>Gamma Arredi &#215; Materia Design</title>
 <style>
-/* Pagina pensata per il browser di una TV: niente librerie, niente font da
+/* Pagina per il browser di una TV: niente librerie, niente font da
    scaricare, nessuna interazione richiesta. Deve solo aprirsi e suonare. */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;background:#000;overflow:hidden}
 body{font-family:-apple-system,'Helvetica Neue',Arial,sans-serif;color:#F5F5F7;cursor:none}
 
-video{
-  position:fixed;inset:0;width:100%;height:100%;
-  object-fit:contain;background:#000;
-}
+video{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+video.via{display:none}
 
-/* messaggio scritto da chi gestisce: compare sopra il filmato */
-#avviso{
-  position:fixed;inset:0;background:#000;display:none;
-  align-items:center;justify-content:center;text-align:center;padding:6vh 8vw;
-}
+/* Pagina web incorniciata. Non si puo' far scorrere il documento di un
+   altro sito dall'esterno, ma si puo' spostare la cornice: la si fa alta
+   quanto serve e la si trasla verso l'alto. L'effetto e' una panoramica. */
+#telaio{position:fixed;inset:0;overflow:hidden;background:#fff;display:none}
+#telaio.on{display:block}
+#telaio iframe{position:absolute;top:0;left:0;width:100%;border:0;display:block;
+  will-change:transform}
+
+#avviso{position:fixed;inset:0;background:#000;display:none;
+  align-items:center;justify-content:center;text-align:center;padding:6vh 8vw;z-index:5}
 #avviso.on{display:flex}
 #avviso p{font-size:5.4vh;font-weight:500;line-height:1.25;letter-spacing:-.02em;max-width:20ch}
 
-/* se il browser blocca la riproduzione automatica */
-#tocca{
-  position:fixed;inset:0;background:#000;display:none;
-  align-items:center;justify-content:center;flex-direction:column;gap:3vh;
-}
+#tocca{position:fixed;inset:0;background:#000;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:3vh;z-index:6}
 #tocca.on{display:flex}
 #tocca p{font-size:3.4vh;color:rgba(245,245,247,.7);letter-spacing:.08em}
 #tocca b{font-size:5vh;font-weight:500}
 
-/* spia di diagnosi: si accende solo aggiungendo ?debug all'indirizzo */
-#spia{position:fixed;left:12px;bottom:10px;font-size:13px;color:#666;display:none}
+#spia{position:fixed;left:12px;bottom:10px;font-size:13px;color:#666;display:none;z-index:9}
 #spia.on{display:block}
 </style>
 </head>
 <body>
 
 <video id="v" muted playsinline autoplay loop preload="auto" disablepictureinpicture></video>
+<div id="telaio"></div>
 <div id="avviso"><p></p></div>
 <div id="tocca"><b>Tocca lo schermo</b><p>per avviare la riproduzione</p></div>
 <div id="spia"></div>
@@ -55,79 +55,166 @@ video{
     spot:    'SPOT-web-leggero.mp4',
     foto:    'FOTO-web-leggero.mp4',
   };
-  const RICONTROLLA = 60000;      // ogni quanto rileggere stato.json, in ms
+  const RICONTROLLA = 60000;   // ogni quanto rileggere lo stato
+  const BATTITO     = 60000;   // ogni quanto dire "sono viva"
 
   const v = document.getElementById('v');
+  const telaio = document.getElementById('telaio');
   const avviso = document.getElementById('avviso');
   const tocca = document.getElementById('tocca');
   const spia = document.getElementById('spia');
   const par = new URLSearchParams(location.search);
   if (par.has('debug')) spia.classList.add('on');
 
-  let attuale = null;
-  const log = (t) => { spia.textContent = new Date().toLocaleTimeString() + '  ' + t; };
+  const log = (t) => { spia.textContent = new Date().toLocaleTimeString() + ' \u00b7 ' + t; };
 
-  function mostra(nome) {
+  let stato = null;        // ultimo stato conosciuto
+  let filmAttuale = null;  // nome del filmato in riproduzione
+  let timerGiro = null;    // passaggio alla tappa successiva
+  let indiceGiro = 0;
+
+  /* ================= filmati ================= */
+  function suonaFilm(nome, ripeti) {
     const src = FILM[nome] || FILM.foto;
-    if (attuale === src) return;
-    attuale = src;
-    v.src = src;
-    v.load();
+    telaio.classList.remove('on');
+    telaio.innerHTML = '';
+    v.classList.remove('via');
+    v.loop = !!ripeti;
+    if (!v.currentSrc.endsWith(src)) { v.src = src; v.load(); }
+    filmAttuale = nome;
     avvia();
-    log('in onda: ' + nome);
+    log('filmato: ' + nome);
   }
 
   function avvia() {
     const p = v.play();
     if (p && p.catch) p.catch(() => {
-      // Alcuni browser TV pretendono un tocco prima di far partire un video.
-      // Il cartello si mostra solo se dopo un attimo il video e ancora fermo:
-      // il primo play() viene spesso rifiutato mentre il file si sta ancora
-      // aprendo, e un istante dopo parte da solo.
-      setTimeout(() => {
-        if (v.paused) { tocca.classList.add('on'); log('riproduzione bloccata: serve un tocco'); }
-      }, 1200);
+      // il cartello si mostra solo se dopo un attimo e' ancora fermo:
+      // il primo play() viene spesso rifiutato mentre il file si apre
+      setTimeout(() => { if (v.paused) { tocca.classList.add('on'); log('serve un tocco'); } }, 1200);
     });
   }
-  // appena il video suona davvero, il cartello sparisce
-  v.addEventListener('playing', () => { tocca.classList.remove('on'); log('in riproduzione'); });
-  ['click', 'touchstart', 'keydown'].forEach(e =>
+  v.addEventListener('playing', () => { tocca.classList.remove('on'); });
+  v.addEventListener('error', () => { log('errore video, riprovo'); setTimeout(() => { v.load(); avvia(); }, 10000); });
+  v.addEventListener('stalled', avvia);
+  ['click','touchstart','keydown'].forEach((e) =>
     addEventListener(e, () => { tocca.classList.remove('on'); avvia(); }));
 
-  // se il filmato si inceppa, si riparte: la pagina deve reggere giorni interi
-  v.addEventListener('ended', avvia);
-  v.addEventListener('error', () => { log('errore video, riprovo fra 10s'); setTimeout(() => { v.load(); avvia(); }, 10000); });
-  v.addEventListener('stalled', avvia);
-  setInterval(() => { if (v.paused && !tocca.classList.contains('on')) avvia(); }, 15000);
+  /* ================= pagine web ================= */
+  function mostraWeb(tappa) {
+    v.pause();
+    v.classList.add('via');
 
-  function leggiStato() {
-    // la marca temporale evita che la TV riproponga una copia vecchia
-    fetch('stato.json?t=' + Date.now(), { cache: 'no-store' })
-      .then(r => r.json())
-      .then(s => {
-        const msg = (s.messaggio || '').trim();
-        if (msg) {
-          avviso.querySelector('p').innerHTML = msg;
-          avviso.classList.add('on');
-          v.pause();
-          log('messaggio a schermo');
-        } else {
-          avviso.classList.remove('on');
-          mostra(s.mostra);
-          if (v.paused) avvia();
-        }
-      })
-      .catch(() => log('stato.json non raggiungibile, tengo quello che c\'e'));
+    // Due modi, e la differenza conta.
+    //
+    // `altezza` a zero: la cornice e' grande quanto lo schermo e il sito si
+    // vede come lo vedrebbe chiunque. Nessuno scorrimento, ma resa corretta.
+    //
+    // `altezza` maggiore: la cornice si fa alta e la si trasla verso l'alto,
+    // ottenendo una panoramica. Attenzione: nei siti costruiti con sezioni
+    // alte quanto lo schermo (unita' vh) questo le gonfia a dismisura, e la
+    // pagina si vede tutta sbagliata. Va bene per pagine di solo contenuto.
+    const panoramica = Number(tappa.altezza) > window.innerHeight + 100;
+    const alt = panoramica ? Number(tappa.altezza) : window.innerHeight;
+
+    telaio.innerHTML =
+      '<iframe src="' + tappa.url.replace(/"/g, '&quot;') + '" ' +
+      'height="' + alt + '" loading="eager" referrerpolicy="no-referrer" ' +
+      // la cornice non puo' portare altrove il monitor ne' aprire finestre
+      'sandbox="allow-scripts allow-same-origin"></iframe>';
+    telaio.classList.add('on');
+
+    if (panoramica) {
+      const corsa = alt - window.innerHeight;
+      const scorri = Math.max(4, (tappa.durata || 40) - 6);
+      telaio.firstChild.animate(
+        [{ transform: 'translateY(0)' }, { transform: 'translateY(-' + corsa + 'px)' }],
+        { duration: scorri * 1000, delay: 3000, easing: 'linear', fill: 'both' }
+      );
+    }
+    filmAttuale = 'web';
+    log('pagina: ' + tappa.url + (panoramica ? ' (panoramica)' : ''));
   }
 
-  // l'indirizzo puo forzare un filmato: utile per provare senza toccare il file
+  /* ================= il giro ================= */
+  function fermaGiro() { clearTimeout(timerGiro); timerGiro = null; }
+
+  function passoGiro() {
+    const giro = (stato && stato.giro) || [];
+    if (!giro.length) return suonaFilm('foto', true);
+    if (indiceGiro >= giro.length) indiceGiro = 0;
+    const t = giro[indiceGiro];
+    if (t.tipo === 'web') mostraWeb(t); else suonaFilm(t.nome, true);
+    indiceGiro++;
+    timerGiro = setTimeout(passoGiro, (t.durata || 40) * 1000);
+  }
+
+  /* ================= applicazione dello stato ================= */
+  function applica(s) {
+    const prima = stato ? JSON.stringify(stato) : '';
+    stato = s;
+    if (prima === JSON.stringify(s)) return;   // nulla di cambiato
+
+    const msg = (s.messaggio || '').trim();
+    if (msg) {
+      fermaGiro();
+      avviso.querySelector('p').innerHTML = msg;
+      avviso.classList.add('on');
+      v.pause();
+      log('avviso a schermo');
+      return;
+    }
+    avviso.classList.remove('on');
+
+    if (s.mostra === 'giro') {
+      fermaGiro();
+      indiceGiro = 0;
+      passoGiro();
+    } else {
+      fermaGiro();
+      suonaFilm(s.mostra, true);
+    }
+  }
+
+  async function leggiStato() {
+    try {
+      const r = await fetch('/api/stato?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      applica(await r.json());
+    } catch {
+      log('stato non raggiungibile, tengo quello che c\u2019\u00e8');
+      if (!stato) applica({ mostra: 'foto', messaggio: '', giro: [] });
+    }
+  }
+
+  /* ================= battito ================= */
+  function battito() {
+    fetch('/api/battito', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        film: filmAttuale || '',
+        tempo: Math.round(v.currentTime || 0),
+        schermo: innerWidth + 'x' + innerHeight,
+      }),
+    }).catch(() => { /* se non passa, si riprova al giro dopo */ });
+  }
+
+  /* ================= avvio ================= */
   const forzato = par.get('mostra');
-  if (forzato && FILM[forzato]) { mostra(forzato); } else { mostra('foto'); }
+  if (forzato && FILM[forzato]) suonaFilm(forzato, true);
 
   leggiStato();
   setInterval(leggiStato, RICONTROLLA);
+  battito();
+  setInterval(battito, BATTITO);
 
-  // schermo intero al primo tocco, dove il browser lo consente
+  // se il filmato resta fermo senza motivo, lo si rimette in moto
+  setInterval(() => {
+    if (v.paused && !tocca.classList.contains('on')
+        && !avviso.classList.contains('on') && !telaio.classList.contains('on')) avvia();
+  }, 15000);
+
   addEventListener('click', () => {
     if (!document.fullscreenElement && document.documentElement.requestFullscreen)
       document.documentElement.requestFullscreen().catch(() => {});
