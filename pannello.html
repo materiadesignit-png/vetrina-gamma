@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Vetrina &#8212; pannello</title>
+<style>
+/* Pannello pensato per essere usato dal telefono: un dito, niente zoom. */
+:root{
+  --nero:#0E0B08; --carta:#17130F; --riga:#2A231B;
+  --chiaro:#F5F5F7; --tenue:#9A9086; --oro:#A9855A;
+  --verde:#3FA46A; --rosso:#C4553D;
+  --sans:-apple-system,'Helvetica Neue',Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--nero);color:var(--chiaro);font-family:var(--sans);
+  line-height:1.45;padding:24px 18px 60px}
+.foglio{max-width:640px;margin:0 auto}
+
+h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+.sotto{color:var(--tenue);font-size:15px;margin-bottom:28px}
+
+.blocco{background:var(--carta);border:1px solid var(--riga);
+  border-radius:14px;padding:20px;margin-bottom:16px}
+.blocco h2{font-size:13px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--oro);margin-bottom:16px}
+
+label{display:block;font-size:14px;color:var(--tenue);margin:14px 0 6px}
+input,textarea,select{width:100%;background:#0B0906;color:var(--chiaro);
+  border:1px solid var(--riga);border-radius:9px;padding:13px 14px;
+  font-family:inherit;font-size:16px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--oro)}
+textarea{min-height:78px;resize:vertical}
+
+button{background:var(--oro);color:#150F09;border:0;border-radius:9px;
+  padding:14px 20px;font-family:inherit;font-size:16px;font-weight:600;
+  cursor:pointer;width:100%}
+button:disabled{opacity:.5;cursor:default}
+button.secondario{background:transparent;color:var(--chiaro);
+  border:1px solid var(--riga);font-weight:500}
+
+/* scelta del filmato: pulsanti larghi, si premono col pollice */
+.scelte{display:grid;gap:9px}
+.scelta{display:flex;align-items:center;gap:13px;padding:14px;
+  border:1px solid var(--riga);border-radius:10px;cursor:pointer}
+.scelta.attiva{border-color:var(--oro);background:rgba(169,133,90,.10)}
+.scelta .pallino{width:17px;height:17px;border-radius:50%;
+  border:2px solid var(--riga);flex:none}
+.scelta.attiva .pallino{border-color:var(--oro);background:var(--oro);
+  box-shadow:inset 0 0 0 3px var(--carta)}
+.scelta .nome{font-size:16px;font-weight:500}
+.scelta .durata{margin-left:auto;color:var(--tenue);font-size:14px}
+
+/* stato della TV */
+.stato{display:flex;align-items:center;gap:12px}
+.spia{width:11px;height:11px;border-radius:50%;background:var(--tenue);flex:none}
+.spia.viva{background:var(--verde);box-shadow:0 0 0 4px rgba(63,164,106,.18)}
+.spia.morta{background:var(--rosso);box-shadow:0 0 0 4px rgba(196,85,61,.18)}
+.stato .testo{font-size:16px;font-weight:500}
+.dettagli{color:var(--tenue);font-size:14px;margin-top:10px;line-height:1.7}
+
+/* elenco delle tappe del giro */
+.tappa{display:flex;align-items:center;gap:10px;padding:11px 0;
+  border-bottom:1px solid var(--riga);font-size:15px}
+.tappa:last-child{border-bottom:0}
+.tappa .eti{background:var(--riga);color:var(--tenue);font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:5px;flex:none}
+.tappa .desc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tappa .via{background:none;border:0;color:var(--tenue);font-size:22px;
+  cursor:pointer;width:auto;padding:0 4px;line-height:1}
+.vuoto{color:var(--tenue);font-size:14px;padding:8px 0}
+
+.avviso{padding:13px 15px;border-radius:9px;font-size:15px;margin-bottom:16px;display:none}
+.avviso.on{display:block}
+.avviso.buono{background:rgba(63,164,106,.14);color:#8FD9B0}
+.avviso.brutto{background:rgba(196,85,61,.14);color:#E9A08D}
+
+.riga2{display:grid;grid-template-columns:1fr 118px;gap:10px}
+#entrata{max-width:380px;margin:12vh auto 0}
+.nascosto{display:none}
+</style>
+</head>
+<body>
+
+<!-- ============ ACCESSO ============ -->
+<div id="entrata" class="foglio">
+  <h1>Vetrina</h1>
+  <p class="sotto">Pannello di controllo</p>
+  <div class="blocco">
+    <div id="avvisoEntrata" class="avviso brutto"></div>
+    <label for="parola">Parola d'ordine</label>
+    <input id="parola" type="password" autocomplete="current-password">
+    <div style="height:16px"></div>
+    <button id="btnEntra">Entra</button>
+  </div>
+</div>
+
+<!-- ============ PANNELLO ============ -->
+<div id="pannello" class="foglio nascosto">
+  <h1>Vetrina</h1>
+  <p class="sotto">vetrina.davidgrassini.it</p>
+
+  <div id="avviso" class="avviso"></div>
+
+  <div class="blocco">
+    <h2>Stato del monitor</h2>
+    <div class="stato">
+      <span id="spia" class="spia"></span>
+      <span id="statoTesto" class="testo">controllo in corso&#8230;</span>
+    </div>
+    <div id="statoDettagli" class="dettagli"></div>
+  </div>
+
+  <div class="blocco">
+    <h2>Cosa va in onda</h2>
+    <div class="scelte" id="scelte"></div>
+  </div>
+
+  <div class="blocco" id="bloccoGiro">
+    <h2>Il giro</h2>
+    <p class="sotto" style="margin-bottom:14px">
+      Le tappe si susseguono in quest'ordine, poi si ricomincia.
+    </p>
+    <div id="tappe"></div>
+
+    <label for="nuovoTipo">Aggiungi una tappa</label>
+    <select id="nuovoTipo">
+      <option value="film:foto">Filmato &#8212; Film fotografico (69s)</option>
+      <option value="film:spot">Filmato &#8212; Spot (40s)</option>
+      <option value="film:vetrina">Filmato &#8212; Vetrina completa (2m52s)</option>
+      <option value="web">Pagina web&#8230;</option>
+    </select>
+
+    <div id="campiWeb" class="nascosto">
+      <label for="nuovoUrl">Indirizzo (deve iniziare con https://)</label>
+      <input id="nuovoUrl" type="url" placeholder="https://www.arredamentigamma.it/" autocapitalize="off" spellcheck="false">
+      <label for="nuovaAltezza">Come mostrarla</label>
+      <select id="nuovaAltezza">
+        <option value="0">Solo la parte alta &mdash; resa corretta (consigliato)</option>
+        <option value="4000">Panoramica corta (4000 px)</option>
+        <option value="8000">Panoramica lunga (8000 px)</option>
+      </select>
+      <p class="sotto" style="margin-top:8px;font-size:13px">
+        La panoramica fa scorrere la pagina dall'alto in basso, ma deforma i siti
+        costruiti con sezioni alte quanto lo schermo &mdash; fra cui
+        arredamentigamma.it. Provala prima di lasciarla in vetrina.
+      </p>
+    </div>
+
+    <div class="riga2" style="margin-top:14px">
+      <button class="secondario" id="btnAggiungi">Aggiungi</button>
+      <input id="nuovaDurata" type="number" value="40" min="5" max="600" aria-label="durata in secondi">
+    </div>
+  </div>
+
+  <div class="blocco">
+    <h2>Avviso a schermo</h2>
+    <p class="sotto" style="margin-bottom:10px">
+      Se scrivi qualcosa, il monitor mostra solo questo testo. Svuota per tornare ai filmati.
+    </p>
+    <textarea id="messaggio" placeholder="Chiuso per ferie dal 10 al 25 agosto"></textarea>
+  </div>
+
+  <button id="btnSalva">Salva e manda in onda</button>
+  <p class="sotto" style="text-align:center;margin-top:14px" id="ultimaModifica"></p>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const CHIAVE = 'vetrina-parola';
+
+  const FILM = {
+    foto:    { nome: 'Film fotografico', durata: '69s' },
+    spot:    { nome: 'Spot',             durata: '40s' },
+    vetrina: { nome: 'Vetrina completa', durata: '2m52s' },
+  };
+
+  let stato = { mostra: 'foto', messaggio: '', giro: [] };
+  let parola = sessionStorage.getItem(CHIAVE) || '';
+
+  const mostraAvviso = (testo, buono = true) => {
+    const a = $('avviso');
+    a.textContent = testo;
+    a.className = 'avviso on ' + (buono ? 'buono' : 'brutto');
+    setTimeout(() => { a.className = 'avviso'; }, 4000);
+  };
+
+  /* ---------- accesso ---------- */
+  async function entra() {
+    const p = $('parola').value;
+    if (!p) return;
+    $('btnEntra').disabled = true;
+    $('btnEntra').textContent = 'Verifico\u2026';
+    try {
+      // si prova a scrivere lo stato invariato: se la parola \u00e8 giusta passa
+      const r = await fetch('/api/stato', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-parola': p },
+        body: JSON.stringify(await (await fetch('/api/stato')).json()),
+      });
+      if (r.status === 401) throw new Error('Parola d\u2019ordine errata.');
+      if (!r.ok) throw new Error('Il server ha risposto ' + r.status + '.');
+      parola = p;
+      sessionStorage.setItem(CHIAVE, p);
+      apriPannello();
+    } catch (e) {
+      const a = $('avvisoEntrata');
+      a.textContent = e.message;
+      a.className = 'avviso on brutto';
+    } finally {
+      $('btnEntra').disabled = false;
+      $('btnEntra').textContent = 'Entra';
+    }
+  }
+
+  function apriPannello() {
+    $('entrata').classList.add('nascosto');
+    $('pannello').classList.remove('nascosto');
+    carica();
+    battito();
+    setInterval(battito, 20000);
+  }
+
+  /* ---------- stato del monitor ---------- */
+  async function battito() {
+    try {
+      const b = await (await fetch('/api/battito?t=' + Date.now(), { cache: 'no-store' })).json();
+      const spia = $('spia');
+      if (b.mai) {
+        spia.className = 'spia';
+        $('statoTesto').textContent = 'Nessun contatto finora';
+        $('statoDettagli').textContent = 'Il monitor non ha ancora aperto la pagina.';
+        return;
+      }
+      const s = b.secondiFa;
+      const viva = s < 180;          // due battiti mancati e lo diamo per spento
+      spia.className = 'spia ' + (viva ? 'viva' : 'morta');
+      $('statoTesto').textContent = viva ? 'Online' : 'Non risponde';
+      const film = FILM[b.film] ? FILM[b.film].nome : (b.film || '\u2014');
+      $('statoDettagli').innerHTML =
+        'Ultimo contatto: <b>' + tempoFa(s) + '</b><br>' +
+        'In onda: <b>' + film + '</b>' + (b.tempo ? ' (al secondo ' + b.tempo + ')' : '') + '<br>' +
+        'Schermo: ' + (b.schermo || '\u2014');
+    } catch { /* rete ballerina: si riprova al giro dopo */ }
+  }
+
+  const tempoFa = (s) => s < 60 ? s + ' secondi fa'
+    : s < 3600 ? Math.round(s / 60) + ' minuti fa'
+    : s < 86400 ? Math.round(s / 3600) + ' ore fa'
+    : Math.round(s / 86400) + ' giorni fa';
+
+  /* ---------- lettura e disegno ---------- */
+  async function carica() {
+    try {
+      stato = await (await fetch('/api/stato?t=' + Date.now(), { cache: 'no-store' })).json();
+    } catch { mostraAvviso('Non riesco a leggere lo stato.', false); }
+    disegna();
+  }
+
+  function disegna() {
+    const voci = Object.keys(FILM).map((k) =>
+      voce(k, FILM[k].nome, FILM[k].durata)).join('') +
+      voce('giro', 'Il giro', stato.giro.length + ' tappe');
+    $('scelte').innerHTML = voci;
+    [...document.querySelectorAll('.scelta')].forEach((el) => {
+      el.onclick = () => { stato.mostra = el.dataset.v; disegna(); };
+    });
+    $('bloccoGiro').style.opacity = stato.mostra === 'giro' ? '1' : '.55';
+    $('messaggio').value = stato.messaggio || '';
+    disegnaTappe();
+    $('ultimaModifica').textContent = stato.aggiornato
+      ? 'Ultima modifica: ' + new Date(stato.aggiornato).toLocaleString('it-IT') : '';
+  }
+
+  const voce = (v, nome, dett) =>
+    '<div class="scelta' + (stato.mostra === v ? ' attiva' : '') + '" data-v="' + v + '">' +
+    '<span class="pallino"></span><span class="nome">' + nome + '</span>' +
+    '<span class="durata">' + dett + '</span></div>';
+
+  function disegnaTappe() {
+    if (!stato.giro.length) {
+      $('tappe').innerHTML = '<p class="vuoto">Nessuna tappa. Aggiungine almeno due.</p>';
+      return;
+    }
+    $('tappe').innerHTML = stato.giro.map((t, i) =>
+      '<div class="tappa"><span class="eti">' + (t.tipo === 'film' ? 'filmato' : 'web') + '</span>' +
+      '<span class="desc">' + fugge(t.tipo === 'film' ? (FILM[t.nome] || {}).nome || t.nome : t.url) +
+        (t.tipo === 'web' && t.altezza ? ' <span style="color:var(--tenue)">(panoramica)</span>' : '') + '</span>' +
+      '<span class="durata">' + t.durata + 's</span>' +
+      '<button class="via" data-i="' + i + '" aria-label="togli">&times;</button></div>').join('');
+    [...document.querySelectorAll('.via')].forEach((b) => {
+      b.onclick = () => { stato.giro.splice(+b.dataset.i, 1); disegna(); };
+    });
+  }
+
+  const fugge = (s) => String(s).replace(/[<>&"]/g, (c) =>
+    ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+  /* ---------- aggiunta di una tappa ---------- */
+  $('nuovoTipo').onchange = () => {
+    $('campiWeb').classList.toggle('nascosto', $('nuovoTipo').value !== 'web');
+  };
+
+  $('btnAggiungi').onclick = () => {
+    const scelta = $('nuovoTipo').value;
+    const durata = Math.min(600, Math.max(5, +$('nuovaDurata').value || 40));
+    if (scelta === 'web') {
+      const u = $('nuovoUrl').value.trim();
+      if (!/^https:\/\/.+\..+/.test(u)) return mostraAvviso('L\u2019indirizzo deve iniziare con https://', false);
+      stato.giro.push({ tipo: 'web', url: u, durata, altezza: +$('nuovaAltezza').value || 0 });
+      $('nuovoUrl').value = '';
+    } else {
+      stato.giro.push({ tipo: 'film', nome: scelta.split(':')[1], durata });
+    }
+    if (stato.giro.length && stato.mostra !== 'giro') stato.mostra = 'giro';
+    disegna();
+  };
+
+  /* ---------- salvataggio ---------- */
+  $('btnSalva').onclick = async () => {
+    stato.messaggio = $('messaggio').value.trim();
+    $('btnSalva').disabled = true;
+    $('btnSalva').textContent = 'Salvo\u2026';
+    try {
+      const r = await fetch('/api/stato', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-parola': parola },
+        body: JSON.stringify(stato),
+      });
+      if (r.status === 401) {
+        sessionStorage.removeItem(CHIAVE);
+        return location.reload();
+      }
+      if (!r.ok) throw new Error('risposta ' + r.status);
+      stato = await r.json();
+      disegna();
+      mostraAvviso('Fatto. Il monitor si adegua entro un minuto.');
+    } catch (e) {
+      mostraAvviso('Non sono riuscito a salvare: ' + e.message, false);
+    } finally {
+      $('btnSalva').disabled = false;
+      $('btnSalva').textContent = 'Salva e manda in onda';
+    }
+  };
+
+  $('btnEntra').onclick = entra;
+  $('parola').onkeydown = (e) => { if (e.key === 'Enter') entra(); };
+
+  // se si \u00e8 gi\u00e0 entrati in questa sessione, si salta l'accesso
+  if (parola) apriPannello();
+})();
+</script>
+</body>
+</html>
