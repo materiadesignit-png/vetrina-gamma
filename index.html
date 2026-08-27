@@ -60,6 +60,12 @@ video.via{display:none}
   const RICONTROLLA = 60000;   // ogni quanto rileggere lo stato
   const BATTITO     = 60000;   // ogni quanto dire "sono viva"
 
+  // Velocita' di riproduzione: 1 = normale, 0.5 = meta'.
+  // Le durate nel giro restano quelle vere del filmato; il tempo di
+  // permanenza viene diviso piu' sotto, altrimenti a meta' velocita'
+  // ogni filmato verrebbe tagliato a meta'.
+  const VELOCITA = 0.5;
+
   const v = document.getElementById('v');
   const telaio = document.getElementById('telaio');
   const avviso = document.getElementById('avviso');
@@ -89,6 +95,7 @@ video.via{display:none}
   }
 
   function avvia() {
+    v.playbackRate = VELOCITA;
     const p = v.play();
     if (p && p.catch) p.catch(() => {
       // il cartello si mostra solo se dopo un attimo e' ancora fermo:
@@ -96,7 +103,7 @@ video.via{display:none}
       setTimeout(() => { if (v.paused) { tocca.classList.add('on'); log('serve un tocco'); } }, 1200);
     });
   }
-  v.addEventListener('playing', () => { tocca.classList.remove('on'); });
+  v.addEventListener('playing', () => { v.playbackRate = VELOCITA; tocca.classList.remove('on'); });
   v.addEventListener('error', () => { log('errore video, riprovo'); setTimeout(() => { v.load(); avvia(); }, 10000); });
   v.addEventListener('stalled', avvia);
   ['click','touchstart','keydown'].forEach((e) =>
@@ -138,17 +145,45 @@ video.via{display:none}
     log('pagina: ' + tappa.url + (panoramica ? ' (panoramica)' : ''));
   }
 
+  /* ============ sorveglianza del codice ============ */
+  // La pagina resta accesa per giorni e non si ricarica mai da sola: senza
+  // questo, una modifica al codice non arriva mai in vetrina. Si confronta
+  // la propria sorgente ogni CONTROLLA_CODICE e, se e' cambiata, ci si
+  // ricarica al cambio di filmato, cosi' il taglio non si vede.
+  const CONTROLLA_CODICE = 300000;
+  let improntaCodice = null;
+  let daRicaricare = false;
+
+  function impronta(t) {
+    let h = 0;
+    for (let i = 0; i < t.length; i++) h = (Math.imul(h, 31) + t.charCodeAt(i)) | 0;
+    return h + ':' + t.length;
+  }
+
+  async function controllaCodice() {
+    try {
+      const r = await fetch('/', { cache: 'no-store' });
+      if (!r.ok) return;
+      const h = impronta(await r.text());
+      if (improntaCodice === null) { improntaCodice = h; return; }
+      if (h !== improntaCodice && !daRicaricare) { daRicaricare = true; log('codice nuovo'); }
+    } catch { /* si riprova al giro dopo */ }
+  }
+
   /* ================= il giro ================= */
   function fermaGiro() { clearTimeout(timerGiro); timerGiro = null; }
 
   function passoGiro() {
+    if (daRicaricare) return location.reload();
     const giro = (stato && stato.giro) || [];
     if (!giro.length) return suonaFilm('foto', true);
     if (indiceGiro >= giro.length) indiceGiro = 0;
     const t = giro[indiceGiro];
     if (t.tipo === 'web') mostraWeb(t); else suonaFilm(t.nome, true);
     indiceGiro++;
-    timerGiro = setTimeout(passoGiro, (t.durata || 40) * 1000);
+    // una pagina web scorre a tempo suo: si rallenta solo il filmato
+    const attesa = (t.durata || 40) * (t.tipo === 'film' ? 1 / VELOCITA : 1);
+    timerGiro = setTimeout(passoGiro, attesa * 1000);
   }
 
   /* ================= applicazione dello stato ================= */
@@ -208,6 +243,12 @@ video.via{display:none}
 
   leggiStato();
   setInterval(leggiStato, RICONTROLLA);
+  controllaCodice();   // subito, per fissare il riferimento
+  setInterval(async () => {
+    await controllaCodice();
+    // con un filmato singolo non c'e' un cambio tappa da aspettare
+    if (daRicaricare && (!stato || stato.mostra !== 'giro')) location.reload();
+  }, CONTROLLA_CODICE);
   battito();
   setInterval(battito, BATTITO);
 
