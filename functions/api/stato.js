@@ -54,7 +54,7 @@ export async function onRequestPost({ request, env }) {
   catch { return risposta({ errore: 'dati non validi' }, 400); }
 
   // si accetta solo quello che serve: niente campi arbitrari in archivio
-  const ammessi = ['foto', 'spot', 'vetrina', 'giro'];
+  const ammessi = ['foto', 'spot', 'vetrina', 'marchi', 'resina', 'giro'];
   const nuovo = {
     mostra: ammessi.includes(corpo.mostra) ? corpo.mostra : 'foto',
     messaggio: String(corpo.messaggio || '').slice(0, 300),
@@ -71,7 +71,7 @@ function pulisci(v) {
   if (!v || typeof v !== 'object') return null;
   const durata = Math.min(600, Math.max(5, Number(v.durata) || 40));
   if (v.tipo === 'film') {
-    return ['foto', 'spot', 'vetrina'].includes(v.nome)
+    return ['foto', 'spot', 'vetrina', 'marchi', 'resina'].includes(v.nome)
       ? { tipo: 'film', nome: v.nome, durata } : null;
   }
   if (v.tipo === 'web') {
