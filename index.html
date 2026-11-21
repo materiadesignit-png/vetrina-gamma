@@ -56,7 +56,11 @@ video.via{display:none}
     foto:    'FOTO-web-leggero.mp4',
     marchi:  'MARCHI-leggero.mp4',
     resina:  'RESINA-leggero.mp4',
+    progetti:'PROGETTI-leggero.mp4',
   };
+  // Filmati gia' montati lenti: vanno a velocita' normale, non dimezzata.
+  const VELOCITA_FILM = { progetti: 1 };
+  const vel = (nome) => VELOCITA_FILM[nome] || VELOCITA;
   const RICONTROLLA = 60000;   // ogni quanto rileggere lo stato
   const BATTITO     = 60000;   // ogni quanto dire "sono viva"
 
@@ -90,12 +94,13 @@ video.via{display:none}
     v.loop = !!ripeti;
     if (!v.currentSrc.endsWith(src)) { v.src = src; v.load(); }
     filmAttuale = nome;
+    v.playbackRate = vel(nome);
     avvia();
     log('filmato: ' + nome);
   }
 
   function avvia() {
-    v.playbackRate = VELOCITA;
+    v.playbackRate = vel(filmAttuale);
     const p = v.play();
     if (p && p.catch) p.catch(() => {
       // il cartello si mostra solo se dopo un attimo e' ancora fermo:
@@ -103,7 +108,7 @@ video.via{display:none}
       setTimeout(() => { if (v.paused) { tocca.classList.add('on'); log('serve un tocco'); } }, 1200);
     });
   }
-  v.addEventListener('playing', () => { v.playbackRate = VELOCITA; tocca.classList.remove('on'); });
+  v.addEventListener('playing', () => { v.playbackRate = vel(filmAttuale); tocca.classList.remove('on'); });
   v.addEventListener('error', () => { log('errore video, riprovo'); setTimeout(() => { v.load(); avvia(); }, 10000); });
   v.addEventListener('stalled', avvia);
   ['click','touchstart','keydown'].forEach((e) =>
@@ -182,7 +187,7 @@ video.via{display:none}
     if (t.tipo === 'web') mostraWeb(t); else suonaFilm(t.nome, true);
     indiceGiro++;
     // una pagina web scorre a tempo suo: si rallenta solo il filmato
-    const attesa = (t.durata || 40) * (t.tipo === 'film' ? 1 / VELOCITA : 1);
+    const attesa = (t.durata || 40) * (t.tipo === 'film' ? 1 / vel(t.nome) : 1);
     timerGiro = setTimeout(passoGiro, attesa * 1000);
   }
 
